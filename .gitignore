@@ -1,0 +1,4 @@
+.stack-work/
+htmlTree.cabal
+*~
+test_html/
