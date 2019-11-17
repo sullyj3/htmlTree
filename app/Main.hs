@@ -1,14 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module Main where
 
 import Data.Function ((&))
+import Data.Foldable
+
 import System.Environment (getArgs)
 import System.IO (hFlush, stdout)
 import System.Exit
 
+import qualified Data.Text.IO as TIO
+
 import Text.HTML.TagSoup
-import Text.HTML.Scalpel
+import Text.HTML.Scalpel hiding (text)
+
+import NeatInterpolation
 
 import Lib
 
@@ -35,11 +42,13 @@ interpreter fname = do
 
     loop :: [Tag String] -> IO ()
     loop html = do
-      putStrLn "enter a selector command"
+      putStrLn $ "=========================\n"
+              <> "enter a selector command:"
       line <- prompt "> "
       case line of
         ('.':className) -> showClasses className html
         ('#':idName)    -> showIDs idName html
+        "help"          -> showHelp
         "exit"          -> exit
         tagName         -> showTags tagName html
       loop html
@@ -60,11 +69,21 @@ showClasses className = showMatching $ AnyTag @: [hasClass className]
 showIDs :: String -> [Tag String] -> IO ()
 showIDs idName = showMatching $ AnyTag @: ["id" @= idName]
 
-showMatching :: Selector -> [Tag String] -> IO ()
-showMatching sel html = case scrape (htmls sel) html of
-  Just [] -> putStrLn "No matches."
+showHelp :: IO ()
+showHelp = TIO.putStrLn [text|
+    Commands:
 
-  -- todo: print the tags prettier
-  Just ts -> mapM_ (putStrLn . show) ts
+      .<CLASS>
+      #<ID>
+      <TAGNAME>
+|]
+
+showMatching :: Selector -> [Tag String] -> IO ()
+showMatching sel html = case matches of
+  Just [] -> putStrLn "No matches."
+  Just ts -> traverse_ (\s -> putStrLn s *> putStrLn "") ts
   Nothing -> return ()
+  where
+    matches :: Maybe [String]
+    matches = scrape (htmls sel) html
 
